@@ -1,14 +1,36 @@
 const express = require('express');
+const { MongoClient, ServerApiVersion } = require('mongodb');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
-const Blog = require('./models/blog');
-
+const blogRoutes = require('./routes/blogRoutes');
 
 //invoking function
 const app = express();
 
 //connect to database
-const dbURL = 'mongodb+srv://yomacorp54:YomaCorp54@pinkblog.a37xlvl.mongodb.net/pink-blogger?retryWrites=true&w=majority'
+const dbURL = 'mongodb+srv://yomacorp54:YomaCorp54@pinkblog.a37xlvl.mongodb.net/pink-blogger?retryWrites=true&w=majority';
+
+const client = new MongoClient(dbURL, {
+    serverApi: {
+      version: ServerApiVersion.v1,
+      strict: true,
+      deprecationErrors: true,
+    }
+  });
+  async function run() {
+    try {
+      // Connect the client to the server	(optional starting in v4.7)
+      await client.connect();
+      // Send a ping to confirm a successful connection
+      await client.db("admin").command({ ping: 1 });
+      console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    } finally {
+      // Ensures that the client will close when you finish/error
+      await client.close();
+    }
+  }
+  run().catch(console.dir);
+
 mongoose.connect(dbURL, {useNewUrlParser: true, useUnifiedTopology: true})
     .then((result) => app.listen(3000))
     .catch((err) => console.log(err));
@@ -60,9 +82,15 @@ app.set('view engine', 'ejs');
 
 
 app.use(morgan('dev'));
+app.use(express.urlencoded({extended: true}));
 app.use(express.static('public'));
+app.use((req, res, next) => {
+    res.locals.path = req.path;
+    next();
+  });
 
 app.get('/', (req, res) => {
+    // console.log(res.statusCode(200));
     res.redirect('/blogs');
 });
 
@@ -71,19 +99,8 @@ app.get('/about', (req, res) => {
     res.render('about', {title: "About"});
 });
 
-app.get('/blogs'), (req, res) => {
-    Blog.find()
-        .then((result) => {
-            res.render('index', {title: 'All Blogs', blogs: result})
-        })
-        .catch((err) => {
-            console.log(err)
-        })
-}
+app.use('/blogs', blogRoutes);
 
-app.get('/blogs/create', (req, res) => {
-    res.render('create', {title: "Create a new blog"})
-})
 //redirects
 app.get('/about-us', (req, res) => {
     res.redirect('/about');
